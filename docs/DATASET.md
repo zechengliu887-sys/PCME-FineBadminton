@@ -1,54 +1,164 @@
 # Dataset and benchmark protocol
 
-This repository does not redistribute the original FineBadminton videos.
+This document describes the frozen data contract used by the PCME experiments.
 
-The frozen PCME benchmark contains 19,866 target-player stroke samples from 11 stroke classes.
+## Source dataset
+
+The benchmark is derived from **Finebadminton-20K**, the public subset of FineBadminton.
+
+Official sources:
+
+- Dataset: https://huggingface.co/datasets/iLearn-Lab/Finebadminton-20K
+- Project page: https://finebadminton.github.io/FineBadminton/
+- Paper: https://arxiv.org/abs/2508.07554
+
+This repository does **not** redistribute the original FineBadminton videos. Users should obtain the source dataset from its official provider and follow the license and terms published there.
+
+## Frozen PCME benchmark
+
+The benchmark contains **19,866** target-player stroke samples from **11** stroke classes.
 
 Split sizes:
 
-- Train: 14,279
-- Validation: 2,894
-- Test: 2,693
+- Train: **14,279**
+- Validation: **2,894**
+- Test: **2,693**
 
-The split is match-disjoint.
+The split is **match-disjoint**: no `match_id` appears in more than one split.
 
-The public benchmark manifest is:
+The released benchmark manifest is:
 
-`manifests/finebadminton_pcme_match_v1_manifest.csv`
+```text
+manifests/finebadminton_pcme_match_v1_manifest.csv
+```
 
-Each row provides:
+The manifest contains exactly 19,866 unique `sample_id` values.
 
-- sample_id
-- stroke_class
-- match_id
-- split
-- target_side
-- source_start_frame
-- source_end_frame
-- retained_source_length
-- model_target_frames
-- temporal_policy
+## Public manifest schema
 
-No local filesystem paths are stored in the public manifest.
+Each row contains:
 
-## Pose input
+| Column | Meaning |
+| --- | --- |
+| `sample_id` | Stable sample identifier |
+| `stroke_class` | One of the 11 stroke labels |
+| `match_id` | Source match identifier |
+| `split` | `train`, `val`, or `test` |
+| `target_side` | Target player side (`top` or `bottom`) |
+| `source_start_frame` | First retained source-frame index, inclusive |
+| `source_end_frame` | Last retained source-frame index, inclusive |
+| `retained_source_length` | Number of source frames retained before resampling |
+| `model_target_frames` | Temporal length expected by the recognition model; fixed to 48 |
+| `temporal_policy` | Frozen temporal-resampling policy |
 
-The public preprocessing pipeline expects one full two-player pose NPZ per sample:
+The public manifest contains no machine-specific absolute paths.
 
-`<pose-root>/<sample_id>.npz`
+## Pose-NPZ input contract
 
-Required NPZ arrays are:
+The released preprocessing code starts from one full two-player pose NPZ per sample:
 
-- frame_indices
-- keypoints_image_norm
-- keypoint_scores
-- valid_mask
-- target_player_index
+```text
+<pose-root>/<sample_id>.npz
+```
 
-The public manifest determines the retained temporal interval. Samples that require trimming are reconstructed from the full NPZ before temporal resampling.
+Required arrays:
 
-All model inputs are resampled to 48 frames.
+```text
+frame_indices
+keypoints_image_norm
+keypoint_scores
+valid_mask
+target_player_index
+```
 
-The released preprocessing pipeline was verified against the frozen dataset used in the paper. All 19,866 samples, split order, labels, keypoint arrays, and keypoint-score arrays matched exactly.
+Expected source shapes are:
 
-Original FineBadminton data must be obtained separately from its official source and used according to its license and terms.
+```text
+keypoints_image_norm : [2, T, 17, 2]
+keypoint_scores      : [2, T, 17]
+valid_mask           : [2, T]
+target_player_index  : scalar selecting player 0 or 1
+```
+
+`frame_indices` identifies the source-video frame represented by each temporal position.
+
+The repository does not assume machine-specific paths. The pose root is supplied explicitly through `--pose-root`.
+
+## Frozen temporal protocol
+
+For each public-manifest row, the builder:
+
+1. loads `<pose-root>/<sample_id>.npz`;
+2. retains the interval from `source_start_frame` through `source_end_frame`, inclusive;
+3. verifies that the retained count equals `retained_source_length`;
+4. applies the frozen missing-coordinate and score handling implemented in `preprocessing/public_pose_dataset.py`;
+5. linearly resamples the sequence to **48 frames**;
+6. preserves the frozen validity handling;
+7. selects the annotated target player;
+8. writes an MMAction2 skeleton-recognition annotation.
+
+The frozen benchmark contains **216** samples that require temporal cropping from the full NPZ representation before resampling. All 216 were independently verified to reconstruct exactly from the full NPZ files using the released frame bounds.
+
+## MMAction2 output contract
+
+The public builder is:
+
+```text
+preprocessing/build_mmaction2_dataset.py
+```
+
+Example:
+
+```bash
+python preprocessing/build_mmaction2_dataset.py \
+  --manifest manifests/finebadminton_pcme_match_v1_manifest.csv \
+  --pose-root /path/to/full_pose_npz \
+  --output data/finebadminton_pcme_match_v1.pkl
+```
+
+For each sample, model-relevant arrays are emitted with shapes:
+
+```text
+keypoint       : [1, 48, 17, 2]
+keypoint_score : [1, 48, 17]
+```
+
+The generated package contains MMAction2 `annotations` and the frozen `train` / `val` / `test` split lists.
+
+## Reproducibility audit
+
+The released preprocessing pipeline was compared against the frozen MMAction2 annotation PKL used in the paper.
+
+The audit verified:
+
+- **19,866 / 19,866** samples reproduced;
+- Train / Validation / Test sizes matched exactly;
+- split order matched exactly;
+- sample order matched exactly;
+- labels and model-relevant scalar metadata matched;
+- `keypoint` arrays matched exactly;
+- `keypoint_score` arrays matched exactly;
+- maximum absolute difference for both arrays was **0.0**.
+
+The old internal annotation file contained one additional QC-only field, `clean_action`; it is intentionally omitted from the public reconstruction because it is not used as model input.
+
+## What is and is not distributed
+
+Distributed in this repository:
+
+- frozen match-disjoint benchmark manifest;
+- public preprocessing code;
+- MMAction2 experiment configurations;
+- PCME and Pair-only heads;
+- evaluation and fixed 1:1 two-stream fusion code.
+
+Not redistributed in this repository:
+
+- original FineBadminton videos;
+- private/local filesystem paths;
+- training checkpoints;
+- generated prediction dumps;
+- internal experiment logs;
+- large intermediate PKL / NPZ / NPY artifacts.
+
+Users are responsible for obtaining the underlying dataset from the official FineBadminton source and for providing pose NPZ files that satisfy the documented input contract.
