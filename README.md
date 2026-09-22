@@ -117,42 +117,59 @@ configs/research/2s_agcn_bone_pcme_v12_seed2_formal.py
 
 Formal 2s-AGCN baseline configurations for the same three seeds are provided under `configs/badminton/`.
 
-## Validation prediction dumping
+## Frozen-split prediction dumping
 
-`evaluation/dump_val_predictions.py` performs **validation-only** inference and writes MMAction2 prediction dumps.
+`evaluation/dump_predictions.py` performs inference on either the frozen validation or test split and writes MMAction2 prediction dumps.
 
-Example:
+Validation example:
 
 ```bash
-python evaluation/dump_val_predictions.py \
-  --config /path/to/config.py \
-  --checkpoint /path/to/checkpoint.pth \
-  --output /path/to/validation_predictions.pkl
+python evaluation/dump_predictions.py \
+  --config configs/research/2s_agcn_joint_pcme_v12_seed0_formal.py \
+  --checkpoint /path/to/joint_checkpoint.pth \
+  --output outputs/predictions/pcme_joint_seed0_val.pkl \
+  --split val \
+  --expected-n 2894
 ```
 
-This script intentionally uses the validation dataloader and should not be interpreted as a test-set tuning utility.
+Test example:
 
-## Two-stream fusion
+```bash
+python evaluation/dump_predictions.py \
+  --config configs/research/2s_agcn_joint_pcme_v12_seed0_formal.py \
+  --checkpoint /path/to/joint_checkpoint.pth \
+  --output outputs/predictions/pcme_joint_seed0_test.pkl \
+  --split test \
+  --expected-n 2693
+```
+
+Run the same commands with the corresponding bone config/checkpoint to obtain bone-stream dumps. Formal checkpoints are selected by validation Macro-F1; the test split is used only for final evaluation, not for checkpoint selection or tuning.
+
+## Fixed two-stream fusion
 
 Joint and bone streams use fixed **1:1 probability late fusion**.
 
+Validation fusion:
+
 ```bash
 python evaluation/fuse_two_stream.py \
-  --joint /path/to/joint_predictions.pkl \
-  --bone /path/to/bone_predictions.pkl \
-  --output-dir /path/to/output
+  --joint outputs/predictions/pcme_joint_seed0_val.pkl \
+  --bone outputs/predictions/pcme_bone_seed0_val.pkl \
+  --output-dir outputs/fused/pcme_seed0_val \
+  --expected-n 2894
 ```
 
-The fusion weight is fixed and is not tuned on the test set.
+Test fusion:
 
-The fusion script outputs:
-
-```text
-predictions.pkl
-metrics.json
-confusion_matrix.csv
-normalized_confusion_matrix.csv
+```bash
+python evaluation/fuse_two_stream.py \
+  --joint outputs/predictions/pcme_joint_seed0_test.pkl \
+  --bone outputs/predictions/pcme_bone_seed0_test.pkl \
+  --output-dir outputs/fused/pcme_seed0_test \
+  --expected-n 2693
 ```
+
+The fusion weight is frozen at 1:1 and is not searched or tuned on the test set.
 
 ## Pair-only control
 
