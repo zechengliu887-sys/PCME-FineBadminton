@@ -73,7 +73,7 @@ Example:
 python preprocessing/build_mmaction2_dataset.py \
   --manifest manifests/finebadminton_pcme_match_v1_manifest.csv \
   --pose-root /path/to/full_pose_npz \
-  --output data/finebadminton_pcme_match_v1.pkl
+  --output data/mmaction2/finebadminton_pose_clean_v3_target48_match_v1.pkl
 ```
 
 The generated annotation PKL follows the MMAction2 skeleton-recognition format used by the formal experiments.
@@ -95,7 +95,7 @@ MMPose 1.3.2
 MMAction2 1.2.0
 ```
 
-The same information is recorded in `environment/versions.txt`.
+The same information is recorded in `environment/versions.txt`. See `docs/INSTALL.md` for environment setup, dataset construction, training, and validation commands.
 
 ## Formal configurations
 
