@@ -61,6 +61,13 @@ valid_mask
 target_player_index
 ```
 
+Coordinate convention:
+
+- `keypoints_image_norm` stores image-normalized coordinates `(x/W, y/H)`.
+- The generated MMAction2 annotations retain these normalized coordinates and use `img_shape=(1, 1)`.
+- The formal recognition configs subsequently apply MMAction2 `PreNormalize2D`, resulting in centered image coordinates `(2x/W - 1, 2y/H - 1)` before skeleton recognition.
+- No additional root-centering or bounding-box-based spatial normalization is applied.
+
 The public manifest specifies the retained temporal interval for each sample. All model inputs are resampled to **48 frames**, and only the target player is retained for recognition.
 
 See `docs/DATASET.md` for the detailed data contract.
@@ -95,7 +102,7 @@ MMPose 1.3.2
 MMAction2 1.2.0
 ```
 
-The same information is recorded in `environment/versions.txt`. See `docs/INSTALL.md` for environment setup, dataset construction, training, and validation commands.
+The same information is recorded in `environment/versions.txt`. A compact recognition-side dependency list is provided in `environment/requirements-recognition.txt`. See `docs/INSTALL.md` for the CUDA-specific PyTorch installation, MMAction2 setup, dataset construction, training, and validation commands.
 
 ## Formal configurations
 
@@ -181,9 +188,9 @@ They should **not** be interpreted as test-set experiments.
 
 ## Reproducibility validation
 
-The public preprocessing pipeline was checked against the frozen dataset used for the paper:
+The public preprocessing pipeline was checked against the frozen dataset used for the paper, starting from the frozen two-player pose NPZ representation:
 
-- **19,866 / 19,866** samples reproduced
+- **19,866 / 19,866** samples reproduced from the frozen two-player pose NPZ inputs
 - Train / Validation / Test ordering matched exactly
 - scalar training metadata matched
 - keypoint arrays matched exactly
