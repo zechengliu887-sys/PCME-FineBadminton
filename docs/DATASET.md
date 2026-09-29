@@ -82,6 +82,24 @@ target_player_index  : scalar selecting player 0 or 1
 
 `frame_indices` identifies the source-video frame represented by each temporal position.
 
+### Coordinate convention
+
+`keypoints_image_norm` stores image-normalized pose coordinates:
+
+```text
+x_image_norm = x_pixel / image_width
+y_image_norm = y_pixel / image_height
+```
+
+The public dataset builder preserves these normalized coordinates in the generated MMAction2 annotation and assigns `img_shape=(1, 1)`. The formal recognition configurations then apply MMAction2 `PreNormalize2D`. Therefore, the coordinates actually presented to the subsequent skeleton feature pipeline are:
+
+```text
+x_model = 2 * x_image_norm - 1
+y_model = 2 * y_image_norm - 1
+```
+
+This transformation centers the image coordinate system but does not perform root-joint centering or bounding-box-based spatial normalization.
+
 The repository does not assume machine-specific paths. The pose root is supplied explicitly through `--pose-root`.
 
 ## Frozen temporal protocol
@@ -127,11 +145,11 @@ The generated package contains MMAction2 `annotations` and the frozen `train` / 
 
 ## Reproducibility audit
 
-The released preprocessing pipeline was compared against the frozen MMAction2 annotation PKL used in the paper.
+Starting from the frozen two-player pose NPZ representation, the released preprocessing pipeline was compared against the frozen MMAction2 annotation PKL used in the paper.
 
 The audit verified:
 
-- **19,866 / 19,866** samples reproduced;
+- **19,866 / 19,866** samples reproduced from the frozen two-player pose NPZ inputs;
 - Train / Validation / Test sizes matched exactly;
 - split order matched exactly;
 - sample order matched exactly;
