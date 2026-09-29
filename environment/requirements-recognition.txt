@@ -1,0 +1,8 @@
+# Recognition-side dependencies for the released PCME reproducibility code.
+# PyTorch / Torchvision require the CUDA-specific installation command in docs/INSTALL.md.
+# MMAction2 1.2.0 is installed from the official v1.2.0 source tag.
+
+numpy==1.26.4
+mmengine==0.10.7
+mmcv==2.1.0
+scikit-learn
